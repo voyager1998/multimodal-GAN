@@ -1,20 +1,13 @@
-from torch.utils import data
 from PIL import Image
 import numpy as np
 import torch
 import glob
 import pdb
 
+# Dataloader for Edge2Shoe datasets=
 
-class Edge2Shoe(data.Dataset):
-    """ Dataloader for Edge2Shoe datasets 
-            Note: we resize images (original 256x256) to 128x128 for faster training purpose 
 
-            Args: 
-                    img_dir: path to the dataset
-
-    """
-
+class Edge2Shoe(torch.utils.data.Dataset):
     def __init__(self, img_dir):
         image_list = []
         for img_file in glob.glob(str(img_dir) + '*'):
@@ -34,9 +27,9 @@ class Edge2Shoe(data.Dataset):
 
 
 if __name__ == '__main__':
-    img_dir = '/home/zlz/BicycleGAN/datasets/edges2shoes/train/'
+    img_dir = 'data/edges2shoes/train/'
     dataset = Edge2Shoe(img_dir)
-    loader = data.DataLoader(dataset, batch_size=32)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=32)
     for idx, data in enumerate(loader):
         edge_tensor, rgb_tensor = data
         print(idx, edge_tensor.shape, rgb_tensor.shape)
