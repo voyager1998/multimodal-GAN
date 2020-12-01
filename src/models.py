@@ -257,6 +257,14 @@ def loss_generator(G, real2G, D, Valid_label, criterion):
     return loss_G, fake
 
 
+def loss_KLD(mu, log_var, device='cpu'):
+    '''
+    Compute KL divergence loss
+    '''
+    loss = 0.5 * torch.sum(torch.exp(log_var) + mu ** 2 - torch.ones(mu.shape).to(device) - log_var)
+    return loss
+
+
 from datasets import Edge2Shoe
 if __name__ == "__main__":
     # Define DataLoader
