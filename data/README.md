@@ -1,1 +1,1 @@
-Download the dataset and put it under this foler.
+Download the dataset and put it under this folder.
