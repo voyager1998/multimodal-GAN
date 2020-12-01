@@ -13,21 +13,22 @@ import pdb
 class Encoder(nn.Module):
     def __init__(self, latent_dim):
         super(Encoder, self).__init__()
-        """ The encoder used in both cVAE-GAN and cLR-GAN, which encode image B or B_hat to latent vector
-            This encoder uses resnet-18 to extract features, and further encode them into a distribution
-            similar to VAE encoder. 
+        """
+        The encoder used in both cVAE-GAN and cLR-GAN, which encode img B or B_hat to latent vector
+        This encoder uses resnet-18 to extract features, and further encode them into a distribution
+        similar to VAE encoder.
 
-            Note: You may either add "reparametrization trick" and "KL divergence" or in the train.py file
-            
-            Args in constructor: 
-                latent_dim: latent dimension for z 
-  
-            Args in forward function: 
-                img: image input (from domain B)
+        Note: You may either add "reparametrization trick" and "KL divergence" in the train.py file
 
-            Returns: 
-                mu: mean of the latent code 
-                logvar: sigma of the latent code 
+        Args in constructor:
+            latent_dim: latent dimension for z
+
+        Args in forward function:
+            img: image input (from domain B)
+
+        Returns:
+            mu: mean of the latent code
+            logvar: sigma of the latent code
         """
 
         # Extracts features at the last fully-connected
@@ -52,17 +53,18 @@ class Encoder(nn.Module):
 #        Generator
 ##############################
 class Generator(nn.Module):
-    """ The generator used in both cVAE-GAN and cLR-GAN, which transform A to B
+    """
+    The generator used in both cVAE-GAN and cLR-GAN, which transform A to B
 
-        Args in constructor: 
-            latent_dim: latent dimension for z 
-            image_shape: (channel, h, w), you may need this to specify the output dimension (optional)
+    Args in constructor:
+        latent_dim: latent dimension for z
+        image_shape: (channel, h, w), you may need this to specify the output dimension (optional)
 
-        Args in forward function: 
-            x: image input (from domain A)
-            z: latent vector (encoded B)
+    Args in forward function:
+        x: image input (from domain A)
+        z: latent vector (encoded B)
 
-        Returns: 
+    Returns:
             fake_B: generated image in domain B
     """
 
@@ -84,16 +86,17 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, in_channels=3):
         super(Discriminator, self).__init__()
-        """ The discriminator used in both cVAE-GAN and cLR-GAN
-            
-            Args in constructor: 
-                in_channels: number of channel in image (default: 3 for RGB)
+        """
+        The discriminator used in both cVAE-GAN and cLR-GAN
 
-            Args in forward function: 
-                x: image input (real_B, fake_B)
- 
-            Returns: 
-                discriminator output: could be a single value or a matrix depending on the type of GAN
+        Args in constructor:
+            in_channels: number of channel in image (default: 3 for RGB)
+
+        Args in forward function:
+            x: image input (real_B, fake_B)
+
+        Returns:
+            discriminator output: could be a single value or a matrix depending on the type of GAN
         """
 
     def forward(self, x):
