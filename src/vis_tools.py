@@ -32,7 +32,8 @@ class visualizer(object):
         self.plot_data[id_val]['Y'].append([errors[k]
                                             for k in self.plot_data[id_val]['legend']])
         self.vis.line(
-            X=np.stack([np.array(self.plot_data[id_val]['X'])] * len(self.plot_data[id_val]['legend']), 1),
+            X=np.stack([np.array(self.plot_data[id_val]['X'])] *
+                       len(self.plot_data[id_val]['legend']), 1),
             Y=np.array(self.plot_data[id_val]['Y']),
             opts={
                 'legend': self.plot_data[id_val]['legend'],
