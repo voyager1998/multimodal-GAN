@@ -15,6 +15,7 @@ class Edge2Shoe(torch.utils.data.Dataset):
         self.image_list = image_list
 
     def __getitem__(self, index):
+        # resize images from 256 to 128 for faster training purposes
         image = Image.open(self.image_list[index]).resize((256, 128), resample=Image.BILINEAR)
         image = np.asarray(image).transpose(2, 0, 1)
         image_tensor = torch.from_numpy(image).float()
