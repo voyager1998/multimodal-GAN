@@ -222,8 +222,12 @@ def loss_discriminator(fakefG, D, real, Valid_label, Fake_label, criterion):
     Then we want to forward real_A through G_AB network to get fake image batch 
     and compute discriminator loss given fake batch and fake, which is all 0.
     Finall, add up these two loss as the total discriminator loss.
-    '''
 
+    It's important to notice that D(A, B) in the paper is only computing the MSE loss between
+    D(B) and Trues.
+    '''
+    # TODO: modify the API to suit D(A, B)
+    
     # forward real images into the discriminator
     real_out = D.forward(real)
     # compute loss between Valid_label and discriminator output on real images
@@ -260,6 +264,7 @@ def loss_generator(G, real2G, D, Valid_label, criterion):
 def loss_KLD(mu, log_var, device='cpu'):
     '''
     Compute KL divergence loss
+    mu, log_var will be the computed from Encoder outputs
     '''
     loss = 0.5 * torch.sum(torch.exp(log_var) + mu ** 2 - torch.ones(mu.shape).to(device) - log_var)
     return loss
