@@ -1,14 +1,13 @@
-from torch.utils import data
 from torch import nn, optim
-from vis_tools import *
-from datasets import *
-from models import *
+from vis_tools import visualizer
+from datasets import Edge2Shoe
+from models import ResNetGenerator, PatchGANDiscriminator, Encoder, weights_init_normal
 import argparse
 import os
 import itertools
+import numpy as np
 import torch
 import time
-import pdb
 
 
 def norm(image):
@@ -28,17 +27,18 @@ def denorm(tensor):
 if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
-    img_dir = '/home/zlz/BicycleGAN/datasets/edges2shoes/train/'
+    img_dir = 'data/edges2shoes/train/'
     img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
-    num_epochs =
-    batch_size =
-    lr_rate =   	      # Adam optimizer learning rate
-    betas = 			  # Adam optimizer beta 1, beta 2
-    lambda_pixel =        # Loss weights for pixel loss
-    lambda_latent =       # Loss weights for latent regression
-    lambda_kl =           # Loss weights for kl divergence
-    latent_dim =          # latent dimension for the encoded images from domain B
-    gpu_id = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    n_residual_blocks = 6
+    num_epochs = 40
+    batch_size = 8
+    lr_rate = 2e-4	      # Adam optimizer learning rate
+    betas = (0.5, 0.999)    # Adam optimizer beta 1, beta 2
+    lambda_pixel = 10      # Loss weights for pixel loss
+    lambda_latent = 0.5    # Loss weights for latent regression
+    lambda_kl = 0.01        # Loss weights for kl divergence
+    latent_dim = 8      # latent dimension for the encoded images from domain B
+    gpu_id = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Reparameterization helper function
     # (You may need this helper function here or inside models.py, depending on your encoder
@@ -50,22 +50,28 @@ if __name__ == "__main__":
 
     # Define DataLoader
     dataset = Edge2Shoe(img_dir)
-    loader = data.DataLoader(dataset, batch_size=batch_size)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
     # Loss functions
     mae_loss = torch.nn.L1Loss().to(gpu_id)
 
     # Define generator, encoder and discriminators
-    generator = Generator(latent_dim, img_shape).to(gpu_id)
+    generator = ResNetGenerator(latent_dim, img_shape, n_residual_blocks).to(gpu_id)
     encoder = Encoder(latent_dim).to(gpu_id)
-    D_VAE = Discriminator().to(gpu_id)
-    D_LR = Discriminator().to(gpu_id)
+    discriminator_VAE = PatchGANDiscriminator(img_shape).to(gpu_id)
+    discriminator_LR = PatchGANDiscriminator(img_shape).to(gpu_id)
+
+    # init weights
+    generator.apply(weights_init_normal)
+    encoder.apply(weights_init_normal)
+    discriminator_VAE.apply(weights_init_normal)
+    discriminator_LR.apply(weights_init_normal)
 
     # Define optimizers for networks
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=lr_rate, betas=betas)
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=lr_rate, betas=betas)
-    optimizer_D_VAE = torch.optim.Adam(D_VAE.parameters(), lr=lr_rate, betas=betas)
-    optimizer_D_LR = torch.optim.Adam(D_LR.parameters(), lr=lr_rate, betas=betas)
+    optimizer_D_VAE = torch.optim.Adam(discriminator_VAE.parameters(), lr=lr_rate, betas=betas)
+    optimizer_D_LR = torch.optim.Adam(discriminator_LR.parameters(), lr=lr_rate, betas=betas)
 
     # For adversarial loss (optional to use)
     valid = 1
@@ -96,7 +102,8 @@ if __name__ == "__main__":
             #  Train Discriminator (cLR-GAN)
             # ---------------------------------
 
-            """ Optional TODO: 
+            """
+            Optional TODO:
                 1. You may want to visualize results during training for debugging purpose
                 2. Save your model every few iterations
             """
