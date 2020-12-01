@@ -5,14 +5,12 @@ import numpy as np
 import torch
 import pdb
 
+
 ##############################
 #        Encoder
 ##############################
-
-
 class Encoder(nn.Module):
     def __init__(self, latent_dim):
-        super(Encoder, self).__init__()
         """
         The encoder used in both cVAE-GAN and cLR-GAN, which encode img B or B_hat to latent vector
         This encoder uses resnet-18 to extract features, and further encode them into a distribution
@@ -30,6 +28,7 @@ class Encoder(nn.Module):
             mu: mean of the latent code
             logvar: sigma of the latent code
         """
+        super(Encoder, self).__init__()
 
         # Extracts features at the last fully-connected
         resnet18_model = resnet18(pretrained=True)
@@ -78,14 +77,12 @@ class Generator(nn.Module):
 
         return
 
+
 ##############################
 #        Discriminator
 ##############################
-
-
 class Discriminator(nn.Module):
     def __init__(self, in_channels=3):
-        super(Discriminator, self).__init__()
         """
         The discriminator used in both cVAE-GAN and cLR-GAN
 
@@ -98,7 +95,56 @@ class Discriminator(nn.Module):
         Returns:
             discriminator output: could be a single value or a matrix depending on the type of GAN
         """
+        super(Discriminator, self).__init__()
 
     def forward(self, x):
 
         return
+
+
+class PatchGANDiscriminator(nn.Module):
+    def __init__(self, input_shape):
+        super(PatchGANDiscriminator, self).__init__()
+
+        channels, height, width = input_shape
+
+        # Calculate output shape of image discriminator (PatchGAN)
+        self.output_shape = (1, height // 2 ** 4, width // 2 ** 4)
+
+        def discriminator_block(in_filters, out_filters, normalize=True):
+            """Returns downsampling layers of each discriminator block"""
+            layers = [nn.Conv2d(in_filters, out_filters, 4, stride=2, padding=1)]
+            if normalize:
+                layers.append(nn.InstanceNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+
+        self.model = nn.Sequential(
+            *discriminator_block(channels, 64, normalize=False),
+            *discriminator_block(64, 128),
+            *discriminator_block(128, 256),
+            *discriminator_block(256, 512),
+            nn.ZeroPad2d((1, 0, 1, 0)),
+            nn.Conv2d(512, 1, 4, padding=1)
+        )
+
+    def forward(self, img):
+        return self.model(img)
+
+
+from datasets import Edge2Shoe
+if __name__ == "__main__":
+    # Define DataLoader
+    img_dir = 'data/edges2shoes/train/'
+    img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
+
+    # load dataset
+    dataset = Edge2Shoe(img_dir)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=32)
+    net_discriminator = PatchGANDiscriminator(input_shape=img_shape)
+
+    for data in loader:
+        edge_tensor, rgb_tensor = data
+
+        discriminator_out = net_discriminator.forward(edge_tensor)
+        print(discriminator_out.shape, net_discriminator.output_shape)
