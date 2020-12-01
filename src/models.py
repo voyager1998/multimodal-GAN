@@ -212,6 +212,51 @@ class PatchGANDiscriminator(nn.Module):
         return self.model(img)
 
 
+def loss_discriminator(fakefG, D, real, Valid_label, Fake_label, criterion):
+    '''
+    loss_discriminator function is applied to compute loss for discriminator D_A and D_B,
+    For example, we want to compute loss for D_A. The loss is consisted of two parts: 
+    D(real_A) and D(G(real_B)). We want to penalize the distance between D(real_A) part and 1 and 
+    distance between D(G(real_B)) part and 0. 
+    We will want to first compute discriminator loss given real_A and valid, which is all 1.
+    Then we want to forward real_A through G_AB network to get fake image batch 
+    and compute discriminator loss given fake batch and fake, which is all 0.
+    Finall, add up these two loss as the total discriminator loss.
+    '''
+
+    # forward real images into the discriminator
+    real_out = D.forward(real)
+    # compute loss between Valid_label and discriminator output on real images
+    loss_real = criterion(real_out, Valid_label)
+
+    # Compute loss between Fake_label and discriminator output on fake images
+    fake_out = D.forward(fakefG.detach())
+    loss_fake = criterion(fake_out, Fake_label)
+    # sum real loss and fake loss as the loss_D
+    loss_D = loss_real + loss_fake
+
+    return loss_D
+
+
+def loss_generator(G, real2G, D, Valid_label, criterion):
+    '''
+    loss_generator function is applied to compute loss for both generator G_AB and G_BA:
+    For example, we want to compute the loss for G_AB.
+    real2G will be the real image in domain A, then we map real2G into domain B to get fake B,
+    then we compute the loss between D_B(fake_B) and valid, which is all 1.
+    The fake_B image will also be one of the outputs, since we want to use it in the loss_cycle_consis.
+    '''
+
+    fake = G.forward(real2G)
+    # forward fake images to the discriminator
+    fake_out = D.forward(fake)
+
+    # Compute loss between valid labels and discriminator output on fake images
+    loss_G = criterion(fake_out, Valid_label)
+
+    return loss_G, fake
+
+
 from datasets import Edge2Shoe
 if __name__ == "__main__":
     # Define DataLoader
