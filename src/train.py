@@ -1,13 +1,22 @@
-from torch import nn, optim
-from vis_tools import visualizer
-from datasets import Edge2Shoe
-from models import ResNetGenerator, PatchGANDiscriminator, Encoder, weights_init_normal
 import argparse
 import os
 import itertools
 import numpy as np
-import torch
 import time
+
+# Torch related
+import torch
+from torch import nn, optim
+from torch.autograd import Variable
+
+# Local modules
+from vis_tools import visualizer
+from datasets import Edge2Shoe
+from models import (ResNetGenerator, PatchGANDiscriminator,
+                    Encoder, weights_init_normal,
+                    reparameterization, loss_KLD,
+                    loss_discriminator, loss_generator
+                    )
 
 
 def norm(image):
@@ -53,25 +62,23 @@ if __name__ == "__main__":
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
     # Loss functions
-    mae_loss = torch.nn.L1Loss().to(gpu_id)
+    l1_loss = torch.nn.L1Loss().to(gpu_id)
+    mse_loss = torch.nn.MSELoss().to(gpu_id)
 
     # Define generator, encoder and discriminators
-    generator = ResNetGenerator(latent_dim, img_shape, n_residual_blocks).to(gpu_id)
+    generator = ResNetGenerator(latent_dim, img_shape, n_residual_blocks, device=gpu_id).to(gpu_id)
     encoder = Encoder(latent_dim).to(gpu_id)
-    discriminator_VAE = PatchGANDiscriminator(img_shape).to(gpu_id)
-    discriminator_LR = PatchGANDiscriminator(img_shape).to(gpu_id)
+    discriminator = PatchGANDiscriminator(img_shape).to(gpu_id)
 
     # init weights
     generator.apply(weights_init_normal)
     encoder.apply(weights_init_normal)
-    discriminator_VAE.apply(weights_init_normal)
-    discriminator_LR.apply(weights_init_normal)
+    discriminator.apply(weights_init_normal)
 
     # Define optimizers for networks
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=lr_rate, betas=betas)
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=lr_rate, betas=betas)
-    optimizer_D_VAE = torch.optim.Adam(discriminator_VAE.parameters(), lr=lr_rate, betas=betas)
-    optimizer_D_LR = torch.optim.Adam(discriminator_LR.parameters(), lr=lr_rate, betas=betas)
+    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=lr_rate, betas=betas)
 
     # For adversarial loss (optional to use)
     valid = 1
@@ -83,24 +90,78 @@ if __name__ == "__main__":
     for e in range(num_epochs):
         start = time.time()
         for idx, data in enumerate(loader):
-
             # ######## Process Inputs ##########
             edge_tensor, rgb_tensor = data
             edge_tensor, rgb_tensor = norm(edge_tensor).to(gpu_id), norm(rgb_tensor).to(gpu_id)
             real_A = edge_tensor
             real_B = rgb_tensor
 
+            # Adversarial ground truths
+            valid = Variable(torch.Tensor(np.ones((real_A.size(0), *discriminator.output_shape))),
+                             requires_grad=False).to(gpu_id)
+            fake = Variable(torch.Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))),
+                            requires_grad=False).to(gpu_id)
+
+            # -------------------------------
+            #  Forward ALL
+            # ------------------------------
+            encoder.train()
+            generator.train()
+
+            z_mu, z_logvar = encoder.forward(rgb_tensor)
+            z_encoded = reparameterization(z_mu, z_logvar, device=gpu_id)
+
+            fake_B_encoded = generator.forward(real_A, z_encoded)
+
+            z_random = torch.randn(batch_size, latent_dim)
+            fake_B_random = generator.forward(real_A, z_random)
+
+            z_mu_predict, z_logvar_predict = encoder.forward(fake_B_random)
+
             # -------------------------------
             #  Train Generator and Encoder
             # ------------------------------
+            for param in discriminator.parameters():
+                param.requires_grad = False
 
-            # ----------------------------------
-            #  Train Discriminator (cVAE-GAN)
-            # ----------------------------------
+            optimizer_E.zero_grad()
+            optimizer_G.zero_grad()
 
-            # ---------------------------------
-            #  Train Discriminator (cLR-GAN)
-            # ---------------------------------
+            # G(A) should fool D
+            fake_B_encoded_label = discriminator.forward(fake_B_encoded)
+            vae_G_loss = mse_loss(fake_B_encoded_label, valid)
+            fake_B_random_label = discriminator.forward(fake_B_random)
+            clr_G_loss = mse_loss(fake_B_random_label, valid)
+
+            # compute KLD loss
+            kld_loss = loss_KLD(z_mu, z_logvar, device=gpu_id)
+
+            # Compute L1 image loss
+            img_loss = l1_loss(fake_B_encoded, real_B)
+
+            loss_G = vae_G_loss + clr_G_loss + kld_loss + img_loss
+            loss_G.backward(retain_graph=True)
+            optimizer_E.step()
+            optimizer_G.step()
+
+            # -------------------------------
+            #  Train Discriminator
+            # ------------------------------
+            for param in discriminator.parameters():
+                param.requires_grad = True
+
+            optimizer_D.zero_grad()
+
+            # Compute VAE-GAN disciminator loss
+            vae_D_loss = loss_discriminator(fake_B_encoded, discriminator, real_B, valid, fake, mse_loss)
+            vae_D_loss.backward()
+
+            clr_D_loss = loss_discriminator(fake_B_random, discriminator, real_B, valid, fake, mse_loss)
+            clr_D_loss.backward()
+
+            optimizer_D.step()
+
+            print(loss_G, vae_D_loss, clr_D_loss)
 
             """
             Optional TODO:

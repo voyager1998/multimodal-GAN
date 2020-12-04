@@ -81,8 +81,10 @@ class ResidualBlock(nn.Module):
 
 
 class ResNetGenerator(nn.Module):
-    def __init__(self, latent_dim, input_shape, num_residual_blocks):
+    def __init__(self, latent_dim, input_shape, num_residual_blocks, device='cuda'):
         super(ResNetGenerator, self).__init__()
+
+        self.device = device
 
         channels = input_shape[0]
 
@@ -127,7 +129,8 @@ class ResNetGenerator(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x: torch.Tensor, z: torch.Tensor):
-        z = z.expand(x.shape[0], x.shape[2], x.shape[3], -1).permute(0, 3, 1, 2)
+        z = torch.stack([z[i].expand(x.shape[2], x.shape[3], -1).permute(2, 0, 1)
+                         for i in range(z.shape[0])]).to(self.device)
         return self.model(torch.cat([x, z], dim=1))
 
 
@@ -212,7 +215,22 @@ class PatchGANDiscriminator(nn.Module):
         return self.model(img)
 
 
-def loss_discriminator(fakefG, D, real, Valid_label, Fake_label, criterion):
+def reparameterization(mean, log_var, eps=None, device='cuda'):
+    ################################
+    # std = exp(0.5*log_var)
+    # eps = N(0,1)
+    # z = mean + std * eps
+    ################################
+
+    std = torch.exp(0.5 * log_var)
+    if eps is None:
+        eps = torch.normal(torch.zeros(mean.shape), torch.ones(mean.shape)).to(device)
+    z = mean + std * eps
+
+    return z
+
+
+def loss_discriminator(fake_B, D, real_B, Valid_label, Fake_label, criterion):
     '''
     loss_discriminator function is applied to compute loss for discriminator D_A and D_B,
     For example, we want to compute loss for D_A. The loss is consisted of two parts: 
@@ -226,42 +244,40 @@ def loss_discriminator(fakefG, D, real, Valid_label, Fake_label, criterion):
     It's important to notice that D(A, B) in the paper is only computing the MSE loss between
     D(B) and Trues.
     '''
-    # TODO: modify the API to suit D(A, B)
-    
-    # forward real images into the discriminator
-    real_out = D.forward(real)
-    # compute loss between Valid_label and discriminator output on real images
+    # forward real_B images into the discriminator
+    real_out = D.forward(real_B)
+    # compute loss between Valid_label and discriminator output on real_B images
     loss_real = criterion(real_out, Valid_label)
 
     # Compute loss between Fake_label and discriminator output on fake images
-    fake_out = D.forward(fakefG.detach())
+    fake_out = D.forward(fake_B.detach())
     loss_fake = criterion(fake_out, Fake_label)
-    # sum real loss and fake loss as the loss_D
+    # sum real_B loss and fake loss as the loss_D
     loss_D = loss_real + loss_fake
 
     return loss_D
 
 
-def loss_generator(G, real2G, D, Valid_label, criterion):
+def loss_generator(G, img_A, D, Valid_label, criterion):
     '''
     loss_generator function is applied to compute loss for both generator G_AB and G_BA:
     For example, we want to compute the loss for G_AB.
-    real2G will be the real image in domain A, then we map real2G into domain B to get fake B,
+    img_A will be the real image in domain A, then we map img_A into domain B to get fake B,
     then we compute the loss between D_B(fake_B) and valid, which is all 1.
     The fake_B image will also be one of the outputs, since we want to use it in the loss_cycle_consis.
     '''
 
-    fake = G.forward(real2G)
-    # forward fake images to the discriminator
-    fake_out = D.forward(fake)
+    fake_B = G.forward(img_A)
+    # forward fake_B images to the discriminator
+    fake_out = D.forward(fake_B)
 
-    # Compute loss between valid labels and discriminator output on fake images
+    # Compute loss between valid labels and discriminator output on fake_B images
     loss_G = criterion(fake_out, Valid_label)
 
-    return loss_G, fake
+    return loss_G, fake_B
 
 
-def loss_KLD(mu, log_var, device='cpu'):
+def loss_KLD(mu, log_var, device='cuda'):
     '''
     Compute KL divergence loss
     mu, log_var will be the computed from Encoder outputs
