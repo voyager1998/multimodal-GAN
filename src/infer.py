@@ -103,7 +103,8 @@ if __name__ == "__main__":
     plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.title("KLD losses")
-    plt.savefig("infer_imgs/kld_loss.png")
+    path = os.path.join(test_img_dir, 'kld_loss.png')
+    plt.savefig(path)
 
     # For adversarial loss (optional to use)
     valid = 1
