@@ -3,8 +3,6 @@ import os
 import itertools
 import numpy as np
 import time
-import matplotlib
-matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
 # Torch related
@@ -13,7 +11,6 @@ from torch import nn, optim
 from torch.autograd import Variable
 
 # Local modules
-from vis_tools import visualizer
 from datasets import Edge2Shoe
 from models import (ResNetGenerator, PatchGANDiscriminator,
                     Encoder, weights_init_normal,
