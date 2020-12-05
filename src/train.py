@@ -3,6 +3,9 @@ import os
 import itertools
 import numpy as np
 import time
+import matplotlib
+matplotlib.use('tkagg')
+import matplotlib.pyplot as plt
 
 # Torch related
 import torch
@@ -36,10 +39,13 @@ def denorm(tensor):
 if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
+    checkpoints_path = 'checkpoints/'
+    os.makedirs(checkpoints_path, exist_ok=True)
+
     img_dir = 'data/edges2shoes/train/'
     img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
     n_residual_blocks = 6
-    num_epochs = 40
+    num_epochs = 20
     batch_size = 8
     lr_rate = 2e-4	      # Adam optimizer learning rate
     betas = (0.5, 0.999)    # Adam optimizer beta 1, beta 2
@@ -84,12 +90,34 @@ if __name__ == "__main__":
     valid = 1
     fake = 0
 
+    # Train loss list
+    list_vae_G_train_loss = []
+    list_clr_G_train_loss = []
+    list_kld_train_loss = []
+    list_img_train_loss = []
+    list_G_train_loss = []
+    list_latent_train_loss = []
+    list_vae_D_train_loss = []
+    list_clr_D_train_loss = []
+
     # Training
     total_steps = len(loader) * num_epochs
     step = 0
-    for e in range(num_epochs):
+    for epoch_id in range(num_epochs):
+        print("------------------------------- Starting epoch ", str(epoch_id), "---------------------------------")
+        avg_vae_G_train_loss = 0
+        avg_clr_G_train_loss = 0
+        avg_kld_train_loss = 0
+        avg_img_train_loss = 0
+        avg_G_train_loss = 0
+        avg_latent_train_loss = 0
+        avg_vae_D_train_loss = 0
+        avg_clr_D_train_loss = 0
+        count = 0
+
         start = time.time()
         for idx, data in enumerate(loader):
+            count += 1
             # ######## Process Inputs ##########
             edge_tensor, rgb_tensor = data
             edge_tensor, rgb_tensor = norm(edge_tensor).to(gpu_id), norm(rgb_tensor).to(gpu_id)
@@ -113,7 +141,7 @@ if __name__ == "__main__":
 
             fake_B_encoded = generator.forward(real_A, z_encoded)
 
-            z_random = torch.randn(batch_size, latent_dim)
+            z_random = torch.randn(batch_size, latent_dim).to(gpu_id)
             fake_B_random = generator.forward(real_A, z_random)
 
             z_mu_predict, z_logvar_predict = encoder.forward(fake_B_random)
@@ -139,8 +167,19 @@ if __name__ == "__main__":
             # Compute L1 image loss
             img_loss = l1_loss(fake_B_encoded, real_B)
 
-            loss_G = vae_G_loss + clr_G_loss + kld_loss + img_loss
+            loss_G = vae_G_loss + clr_G_loss + lambda_kl * kld_loss + lambda_pixel * img_loss
             loss_G.backward(retain_graph=True)
+
+            #  Backward Latent space
+            for param in encoder.parameters():
+                param.requires_grad = False
+
+            latent_loss = l1_loss(z_mu_predict, z_random) * lambda_latent
+            latent_loss.backward()
+
+            for param in encoder.parameters():
+                param.requires_grad = True
+
             optimizer_E.step()
             optimizer_G.step()
 
@@ -152,19 +191,93 @@ if __name__ == "__main__":
 
             optimizer_D.zero_grad()
 
-            # Compute VAE-GAN disciminator loss
-            vae_D_loss = loss_discriminator(fake_B_encoded, discriminator, real_B, valid, fake, mse_loss)
+            # Compute VAE-GAN discriminator loss
+            vae_D_loss = loss_discriminator(
+                fake_B_encoded, discriminator, real_B, valid, fake, mse_loss)
             vae_D_loss.backward()
 
-            clr_D_loss = loss_discriminator(fake_B_random, discriminator, real_B, valid, fake, mse_loss)
+            clr_D_loss = loss_discriminator(
+                fake_B_random, discriminator, real_B, valid, fake, mse_loss)
             clr_D_loss.backward()
 
             optimizer_D.step()
 
-            print(loss_G, vae_D_loss, clr_D_loss)
+            # -------------------------------
+            #  Add up loss
+            # ------------------------------
+            avg_vae_G_train_loss += vae_G_loss.item()
+            avg_clr_G_train_loss += clr_G_loss.item()
+            avg_kld_train_loss += kld_loss.item()
+            avg_img_train_loss += img_loss.item()
+            avg_G_train_loss += loss_G.item()
+            avg_latent_train_loss += latent_loss.item()
+            avg_vae_D_train_loss += vae_D_loss.item()
+            avg_clr_D_train_loss += clr_D_loss.item()
 
-            """
-            Optional TODO:
-                1. You may want to visualize results during training for debugging purpose
-                2. Save your model every few iterations
-            """
+            print("epoch {} iter {}; loss_G: {:.4f}; loss_D: {:.4f}; latent: {:.4f};".format(
+                epoch_id, idx, loss_G.item(), vae_D_loss.item() + clr_D_loss.item(), latent_loss.item()))
+
+            if (idx + 1) % (len(loader) / 5) == 0:
+                # -------------------------------
+                #  Save model
+                # ------------------------------
+                path = os.path.join(checkpoints_path,
+                                    'bicycleGAN_epoch_' + str(epoch_id) + '_' + str(idx))
+                torch.save({
+                    'epoch': epoch_id,
+                    'encoder_state_dict': encoder.state_dict(),
+                    'generator_state_dict': generator.state_dict(),
+                    'discriminator_state_dict': discriminator.state_dict(),
+                    'optimizer_E': optimizer_E.state_dict(),
+                    'optimizer_G': optimizer_G.state_dict(),
+                    'optimizer_D': optimizer_D.state_dict()
+                }, path)
+
+                # -------------------------------
+                #  Visualization
+                # ------------------------------
+            if (idx + 1) % 1000 == 0:
+                vis_fake_B_encoded = denorm(fake_B_encoded[0].detach()).cpu().data.numpy().astype(np.uint8)
+                vis_fake_B_random = denorm(fake_B_random[0].detach()).cpu().data.numpy().astype(np.uint8)
+                vis_real_B = denorm(real_B[0].detach()).cpu().data.numpy().astype(np.uint8)
+                vis_real_A = denorm(real_A[0].detach()).cpu().data.numpy().astype(np.uint8)
+                fig, axs = plt.subplots(2, 2, figsize=(5, 5))
+
+                axs[0, 0].imshow(vis_real_A.transpose(1, 2, 0))
+                axs[0, 0].set_title('real images')
+                axs[0, 1].imshow(vis_fake_B_encoded.transpose(1, 2, 0))
+                axs[0, 1].set_title('generated images')
+                axs[1, 0].imshow(vis_real_B.transpose(1, 2, 0))
+                axs[1, 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
+                plt.savefig('figures/epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
+
+        # -------------------------------
+        #  Main Storage
+        # ------------------------------
+        list_vae_G_train_loss.append(avg_vae_G_train_loss / count)
+        list_clr_G_train_loss.append(avg_clr_G_train_loss / count)
+        list_kld_train_loss.append(avg_kld_train_loss / count)
+        list_img_train_loss.append(avg_img_train_loss / count)
+        list_G_train_loss.append(avg_G_train_loss / count)
+        list_latent_train_loss.append(avg_latent_train_loss / count)
+        list_vae_D_train_loss.append(avg_vae_D_train_loss / count)
+        list_clr_D_train_loss.append(avg_clr_D_train_loss / count)
+
+        path = os.path.join(checkpoints_path, 'bicycleGAN_epoch_' + str(epoch_id))
+        torch.save({
+            'epoch': epoch_id,
+            'encoder_state_dict': encoder.state_dict(),
+            'generator_state_dict': generator.state_dict(),
+            'discriminator_state_dict': discriminator.state_dict(),
+            'optimizer_E': optimizer_E.state_dict(),
+            'optimizer_G': optimizer_G.state_dict(),
+            'optimizer_D': optimizer_D.state_dict(),
+            'list_vae_G_train_loss': list_vae_G_train_loss,
+            'list_clr_G_train_loss': list_clr_G_train_loss,
+            'list_kld_train_loss': list_kld_train_loss,
+            'list_img_train_loss': list_img_train_loss,
+            'list_G_train_loss': list_G_train_loss,
+            'list_latent_train_loss': list_latent_train_loss,
+            'list_vae_D_train_loss': list_vae_D_train_loss,
+            'list_clr_D_train_loss': list_clr_D_train_loss
+        }, path)
