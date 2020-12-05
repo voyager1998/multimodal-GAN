@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
             fake_B_encoded = generator.forward(real_A, z_encoded)
 
-            z_random = torch.randn(batch_size, latent_dim).to(gpu_id)
+            z_random = torch.randn(real_A.shape[0], latent_dim).to(gpu_id)
             fake_B_random = generator.forward(real_A, z_random)
 
             z_mu_predict, z_logvar_predict = encoder.forward(fake_B_random)
