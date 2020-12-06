@@ -93,7 +93,7 @@ class ResNetGenerator(nn.Module):
         model = [
             nn.ReflectionPad2d(channels),
             nn.Conv2d(channels + latent_dim, out_features, 7),
-            nn.InstanceNorm2d(out_features),
+            # nn.InstanceNorm2d(out_features),
             nn.ReLU(inplace=True),
         ]
         in_features = out_features
