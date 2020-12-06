@@ -129,9 +129,11 @@ class ResNetGenerator(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, x: torch.Tensor, z: torch.Tensor):
-        z = torch.stack([z[i].expand(x.shape[2], x.shape[3], -1).permute(2, 0, 1)
-                         for i in range(z.shape[0])]).to(self.device)
-        return self.model(torch.cat([x, z], dim=1))
+        # reference to original author's code: https://github.com/junyanz/BicycleGAN/blob/master/models/networks.py
+        z_img = z.view(z.size(0), z.size(1), 1, 1).expand(
+            z.size(0), z.size(1), x.size(2), x.size(3))
+        out = torch.cat([x, z_img], dim=1)
+        return self.model(out)
 
 
 class Generator(nn.Module):
