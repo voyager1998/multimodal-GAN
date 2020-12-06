@@ -40,7 +40,9 @@ if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints/'
+    imgs_path = 'figures/'
     os.makedirs(checkpoints_path, exist_ok=True)
+    os.makedirs(imgs_path, exist_ok=True)
 
     img_dir = 'data/edges2shoes/train/'
     img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
@@ -217,7 +219,7 @@ if __name__ == "__main__":
             print("epoch {} iter {}; loss_G: {:.4f}; loss_D: {:.4f}; latent: {:.4f};".format(
                 epoch_id, idx, loss_G.item(), vae_D_loss.item() + clr_D_loss.item(), latent_loss.item()))
 
-            if (idx + 1) % (len(loader) / 5) == 0:
+            if (idx + 1) % (len(loader) // 5) == 0:
                 # -------------------------------
                 #  Save model
                 # ------------------------------
@@ -249,7 +251,8 @@ if __name__ == "__main__":
                 axs[0, 1].set_title('generated images')
                 axs[1, 0].imshow(vis_real_B.transpose(1, 2, 0))
                 axs[1, 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
-                plt.savefig('figures/epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
+                path = os.path.join(imgs_path, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
+                plt.savefig(path)
 
         # -------------------------------
         #  Main Storage
