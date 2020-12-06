@@ -38,7 +38,6 @@ if __name__ == "__main__":
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints/'
     test_img_dir = 'out_images_infer/'
-    os.makedirs(checkpoints_path, exist_ok=True)
     os.makedirs(test_img_dir, exist_ok=True)
 
     img_dir = 'data/edges2shoes/val/'
@@ -95,13 +94,24 @@ if __name__ == "__main__":
     list_vae_D_train_loss = checkpoint['list_vae_D_train_loss']
     list_clr_D_train_loss = checkpoint['list_clr_D_train_loss']
 
-    plt.figure()
-    plt.plot(list_kld_train_loss)
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.title("KLD losses")
-    path = os.path.join(test_img_dir, 'kld_loss.png')
-    plt.savefig(path)
+    fig, axs = plt.subplots(3, 3)
+    axs[0, 0].plot(list_vae_G_train_loss)
+    axs[0, 1].plot(list_clr_G_train_loss)
+    axs[0, 2].plot(list_kld_train_loss)
+    axs[1, 0].plot(list_img_train_loss)
+    axs[1, 1].plot(list_G_train_loss)
+    axs[1, 2].plot(list_latent_train_loss)
+    axs[2, 0].plot(list_vae_D_train_loss)
+    axs[2, 1].plot(list_clr_D_train_loss)
+    axs[0, 0].set_title('list_vae_G_train_loss')
+    axs[0, 1].set_title('list_clr_G_train_loss')
+    axs[0, 2].set_title('list_kld_train_loss')
+    axs[1, 0].set_title('list_img_train_loss')
+    axs[1, 1].set_title('list_G_train_loss')
+    axs[1, 2].set_title('list_latent_train_loss')
+    axs[2, 0].set_title('list_vae_D_train_loss')
+    axs[2, 1].set_title('list_clr_D_train_loss')
+    plt.show()
 
     # For adversarial loss (optional to use)
     valid = 1
