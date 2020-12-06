@@ -218,5 +218,6 @@ $RECYCLE.BIN/
 checkpoints
 checkpoints_saved*
 figures
+figures_saved*
 out_images*
 data/edges2shoes
