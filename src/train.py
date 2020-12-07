@@ -261,10 +261,7 @@ if __name__ == "__main__":
                 axs[1, 0].imshow(vis_real_B.transpose(1, 2, 0))
                 axs[1, 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
                 path = os.path.join(imgs_path, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
-                if IN_COLAB:
-                    plt.show()
-                else:
-                    plt.savefig(path)
+                plt.savefig(path)
 
         # -------------------------------
         #  Main Storage
