@@ -85,17 +85,20 @@ if __name__ == "__main__":
     # Define generator, encoder and discriminators
     generator = ResNetGenerator(latent_dim, img_shape, n_residual_blocks, device=gpu_id).to(gpu_id)
     encoder = Encoder(latent_dim).to(gpu_id)
-    discriminator = PatchGANDiscriminator(img_shape).to(gpu_id)
+    discriminator_VAE = PatchGANDiscriminator(img_shape).to(gpu_id)
+    discriminator_CLR = PatchGANDiscriminator(img_shape).to(gpu_id)
 
     # init weights
     generator.apply(weights_init_normal)
     encoder.apply(weights_init_normal)
-    discriminator.apply(weights_init_normal)
+    discriminator_VAE.apply(weights_init_normal)
+    discriminator_CLR.apply(weights_init_normal)
 
     # Define optimizers for networks
     optimizer_E = torch.optim.Adam(encoder.parameters(), lr=lr_rate, betas=betas)
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=lr_rate, betas=betas)
-    optimizer_D = torch.optim.Adam(discriminator.parameters(), lr=lr_rate, betas=betas)
+    optimizer_D_vae = torch.optim.Adam(discriminator_VAE.parameters(), lr=lr_rate, betas=betas)
+    optimizer_D_clr = torch.optim.Adam(discriminator_CLR.parameters(), lr=lr_rate, betas=betas)
 
     # For adversarial loss (optional to use)
     valid = 1
@@ -136,9 +139,9 @@ if __name__ == "__main__":
             real_B = rgb_tensor
 
             # Adversarial ground truths
-            valid = Variable(torch.Tensor(np.ones((real_A.size(0), *discriminator.output_shape))),
+            valid = Variable(torch.Tensor(np.ones((real_A.size(0), *discriminator_VAE.output_shape))),
                              requires_grad=False).to(gpu_id)
-            fake = Variable(torch.Tensor(np.zeros((real_A.size(0), *discriminator.output_shape))),
+            fake = Variable(torch.Tensor(np.zeros((real_A.size(0), *discriminator_VAE.output_shape))),
                             requires_grad=False).to(gpu_id)
 
             # -------------------------------
@@ -160,16 +163,18 @@ if __name__ == "__main__":
             # -------------------------------
             #  Train Generator and Encoder
             # ------------------------------
-            for param in discriminator.parameters():
+            for param in discriminator_VAE.parameters():
+                param.requires_grad = False
+            for param in discriminator_CLR.parameters():
                 param.requires_grad = False
 
             optimizer_E.zero_grad()
             optimizer_G.zero_grad()
 
             # G(A) should fool D
-            fake_B_encoded_label = discriminator.forward(fake_B_encoded)
+            fake_B_encoded_label = discriminator_VAE.forward(fake_B_encoded)
             vae_G_loss = mse_loss(fake_B_encoded_label, valid)
-            fake_B_random_label = discriminator.forward(fake_B_random)
+            fake_B_random_label = discriminator_CLR.forward(fake_B_random)
             clr_G_loss = mse_loss(fake_B_random_label, valid)
 
             # compute KLD loss
@@ -197,21 +202,24 @@ if __name__ == "__main__":
             # -------------------------------
             #  Train Discriminator
             # ------------------------------
-            for param in discriminator.parameters():
+            for param in discriminator_VAE.parameters():
+                param.requires_grad = True
+            for param in discriminator_CLR.parameters():
                 param.requires_grad = True
 
-            optimizer_D.zero_grad()
+            optimizer_D_vae.zero_grad()
+            optimizer_D_clr.zero_grad()
 
             # Compute VAE-GAN discriminator loss
             vae_D_loss = loss_discriminator(
-                fake_B_encoded, discriminator, real_B, valid, fake, mse_loss)
+                fake_B_encoded, discriminator_VAE, real_B, valid, fake, mse_loss)
             vae_D_loss.backward()
+            optimizer_D_vae.step()
 
             clr_D_loss = loss_discriminator(
-                fake_B_random, discriminator, real_B, valid, fake, mse_loss)
+                fake_B_random, discriminator_CLR, real_B, valid, fake, mse_loss)
             clr_D_loss.backward()
-
-            optimizer_D.step()
+            optimizer_D_clr.step()
 
             # -------------------------------
             #  Add up loss
@@ -238,10 +246,12 @@ if __name__ == "__main__":
                     'epoch': epoch_id,
                     'encoder_state_dict': encoder.state_dict(),
                     'generator_state_dict': generator.state_dict(),
-                    'discriminator_state_dict': discriminator.state_dict(),
+                    'discriminator_VAE_state_dict': discriminator_VAE.state_dict(),
+                    'discriminator_CLR_state_dict': discriminator_CLR.state_dict(),
                     'optimizer_E': optimizer_E.state_dict(),
                     'optimizer_G': optimizer_G.state_dict(),
-                    'optimizer_D': optimizer_D.state_dict()
+                    'optimizer_D_vae': optimizer_D_vae.state_dict(),
+                    'optimizer_D_clr': optimizer_D_clr.state_dict()
                 }, path)
 
                 # -------------------------------
@@ -283,10 +293,12 @@ if __name__ == "__main__":
             'epoch': epoch_id,
             'encoder_state_dict': encoder.state_dict(),
             'generator_state_dict': generator.state_dict(),
-            'discriminator_state_dict': discriminator.state_dict(),
+            'discriminator_VAE_state_dict': discriminator_VAE.state_dict(),
+            'discriminator_CLR_state_dict': discriminator_CLR.state_dict(),
             'optimizer_E': optimizer_E.state_dict(),
             'optimizer_G': optimizer_G.state_dict(),
-            'optimizer_D': optimizer_D.state_dict(),
+            'optimizer_D_vae': optimizer_D_vae.state_dict(),
+            'optimizer_D_clr': optimizer_D_clr.state_dict(),
             'list_vae_G_train_loss': list_vae_G_train_loss,
             'list_clr_G_train_loss': list_clr_G_train_loss,
             'list_kld_train_loss': list_kld_train_loss,
