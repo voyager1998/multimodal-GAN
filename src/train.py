@@ -3,8 +3,6 @@ import os
 import itertools
 import numpy as np
 import time
-import matplotlib
-matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
 # Torch related
@@ -20,6 +18,14 @@ from models import (ResNetGenerator, PatchGANDiscriminator,
                     reparameterization, loss_KLD,
                     loss_discriminator, loss_generator
                     )
+
+# env variables
+import sys
+IN_COLAB = 'google' in sys.modules
+COLAB_ROOT = "/content/drive/MyDrive/CIS680_2019/BicycleGAN"
+if IN_COLAB:
+    os.makedirs(COLAB_ROOT, exist_ok=True)
+    print("Google Colab: successfully create COLAB_ROOT")
 
 
 def norm(image):
@@ -41,6 +47,9 @@ if __name__ == "__main__":
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints/'
     imgs_path = 'figures/'
+    if IN_COLAB:
+        checkpoints_path = os.path.join(COLAB_ROOT, checkpoints_path)
+        imgs_path = os.path.join(COLAB_ROOT, imgs_path)
     os.makedirs(checkpoints_path, exist_ok=True)
     os.makedirs(imgs_path, exist_ok=True)
 

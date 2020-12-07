@@ -11,6 +11,7 @@ from torch import nn, optim
 from torch.autograd import Variable
 
 # Local modules
+from train import IN_COLAB
 from datasets import Edge2Shoe
 from models import (ResNetGenerator, PatchGANDiscriminator,
                     Encoder, weights_init_normal,
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     encoder = Encoder(latent_dim).to(gpu_id)
     discriminator = PatchGANDiscriminator(img_shape).to(gpu_id)
 
-    epoch_id = 14
+    epoch_id = 19
     path = os.path.join(checkpoints_path, 'bicycleGAN_epoch_' + str(epoch_id))
     checkpoint = torch.load(path)
     encoder.load_state_dict(checkpoint['encoder_state_dict'])
@@ -151,4 +152,7 @@ if __name__ == "__main__":
             axs[i + 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
 
         path = os.path.join(test_img_dir, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
-        plt.savefig(path)
+        if IN_COLAB:
+            plt.show()
+        else:
+            plt.savefig(path)
