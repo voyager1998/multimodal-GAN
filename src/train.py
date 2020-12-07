@@ -24,7 +24,7 @@ from models import (ResNetGenerator, PatchGANDiscriminator,
 # env variables
 import sys
 IN_COLAB = 'google' in sys.modules
-COLAB_ROOT = "/content/drive/My Drive/CIS680_2019/BicycleGAN"
+COLAB_ROOT = "/content/drive/MyDrive/CIS680_2019/BicycleGAN"
 if IN_COLAB:
     os.makedirs(COLAB_ROOT, exist_ok=True)
     print("Google Colab: successfully create COLAB_ROOT")
