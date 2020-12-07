@@ -21,6 +21,14 @@ from models import (ResNetGenerator, PatchGANDiscriminator,
                     loss_discriminator, loss_generator
                     )
 
+# env variables
+import sys
+IN_COLAB = 'google' in sys.modules
+COLAB_ROOT = "/content/drive/My Drive/CIS680_2019/BicycleGAN"
+if IN_COLAB:
+    os.makedirs(COLAB_ROOT, exist_ok=True)
+    print("Google Colab: successfully create COLAB_ROOT")
+
 
 def norm(image):
     """
@@ -41,6 +49,9 @@ if __name__ == "__main__":
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints/'
     imgs_path = 'figures/'
+    if IN_COLAB:
+        checkpoints_path = os.path.join(COLAB_ROOT, checkpoints_path)
+        imgs_path = os.path.join(COLAB_ROOT, imgs_path)
     os.makedirs(checkpoints_path, exist_ok=True)
     os.makedirs(imgs_path, exist_ok=True)
 
@@ -252,7 +263,10 @@ if __name__ == "__main__":
                 axs[1, 0].imshow(vis_real_B.transpose(1, 2, 0))
                 axs[1, 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
                 path = os.path.join(imgs_path, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
-                plt.savefig(path)
+                if IN_COLAB:
+                    plt.show()
+                else:
+                    plt.savefig(path)
 
         # -------------------------------
         #  Main Storage
