@@ -219,5 +219,9 @@ checkpoints
 checkpoints_saved*
 figures
 figures_saved*
+checkpoints_useD2
+checkpoints_useD2_saved*
+figures_useD2
+figures_useD2_saved*
 out_images*
 data/edges2shoes

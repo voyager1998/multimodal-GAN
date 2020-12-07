@@ -45,8 +45,8 @@ def denorm(tensor):
 if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
-    checkpoints_path = 'checkpoints/'
-    imgs_path = 'figures/'
+    checkpoints_path = 'checkpoints_useD2/'
+    imgs_path = 'figures_useD2/'
     if IN_COLAB:
         checkpoints_path = os.path.join(COLAB_ROOT, checkpoints_path)
         imgs_path = os.path.join(COLAB_ROOT, imgs_path)
