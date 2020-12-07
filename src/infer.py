@@ -74,7 +74,7 @@ if __name__ == "__main__":
     encoder = Encoder(latent_dim).to(gpu_id)
     discriminator = PatchGANDiscriminator(img_shape).to(gpu_id)
 
-    epoch_id = 14
+    epoch_id = 19
     path = os.path.join(checkpoints_path, 'bicycleGAN_epoch_' + str(epoch_id))
     checkpoint = torch.load(path)
     encoder.load_state_dict(checkpoint['encoder_state_dict'])
