@@ -53,7 +53,7 @@ if __name__ == "__main__":
     betas = (0.5, 0.999)    # Adam optimizer beta 1, beta 2
     lambda_pixel = 10      # Loss weights for pixel loss
     lambda_latent = 0.5    # Loss weights for latent regression
-    lambda_kl = 0.01 * 1e-6        # Loss weights for kl divergence
+    lambda_kl = 0.01        # Loss weights for kl divergence
     latent_dim = 8      # latent dimension for the encoded images from domain B
     gpu_id = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -216,8 +216,8 @@ if __name__ == "__main__":
             avg_vae_D_train_loss += vae_D_loss.item()
             avg_clr_D_train_loss += clr_D_loss.item()
 
-            print("epoch {} iter {}; loss_G: {:.4f}; loss_D: {:.4f}; latent: {:.4f};".format(
-                epoch_id, idx, loss_G.item(), vae_D_loss.item() + clr_D_loss.item(), latent_loss.item()))
+            print("epoch {} iter {}; loss_G: {:.4f}; loss_D: {:.4f}; latent: {:.4f}; KLD: {:.4f}".format(
+                epoch_id, idx, loss_G.item(), vae_D_loss.item() + clr_D_loss.item(), latent_loss.item(), kld_loss.item()))
 
             if (idx + 1) % (len(loader) // 5) == 0:
                 # -------------------------------
