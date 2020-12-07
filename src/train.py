@@ -3,8 +3,6 @@ import os
 import itertools
 import numpy as np
 import time
-import matplotlib
-matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
 # Torch related
