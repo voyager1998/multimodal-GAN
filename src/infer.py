@@ -11,7 +11,8 @@ from torch import nn, optim
 from torch.autograd import Variable
 
 # Local modules
-from train import IN_COLAB
+import sys
+IN_COLAB = 'google' in sys.modules
 from datasets import Edge2Shoe
 from models import (ResNetGenerator, PatchGANDiscriminator,
                     Encoder, weights_init_normal,
@@ -37,7 +38,7 @@ def denorm(tensor):
 if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
-    checkpoints_path = 'checkpoints/'
+    checkpoints_path = 'checkpoints_archived/'
     test_img_dir = 'out_images_infer/'
     os.makedirs(test_img_dir, exist_ok=True)
 
@@ -73,17 +74,14 @@ if __name__ == "__main__":
     # Define generator, encoder and discriminators
     generator = ResNetGenerator(latent_dim, img_shape, n_residual_blocks, device=gpu_id).to(gpu_id)
     encoder = Encoder(latent_dim).to(gpu_id)
-    discriminator = PatchGANDiscriminator(img_shape).to(gpu_id)
 
     epoch_id = 19
     path = os.path.join(checkpoints_path, 'bicycleGAN_epoch_' + str(epoch_id))
     checkpoint = torch.load(path)
     encoder.load_state_dict(checkpoint['encoder_state_dict'])
     generator.load_state_dict(checkpoint['generator_state_dict'])
-    discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
     encoder.eval()
     generator.eval()
-    discriminator.eval()
 
     # Plot training losses
     list_vae_G_train_loss = checkpoint['list_vae_G_train_loss']
@@ -128,13 +126,12 @@ if __name__ == "__main__":
         # -------------------------------
         #  Forward ALL
         # ------------------------------
-        fig, axs = plt.subplots(1, 5, figsize=(5, 5))
+        fig, axs = plt.subplots(1, 5, figsize=(10, 2))
         vis_real_A = denorm(real_A[0].detach()).cpu().data.numpy().astype(np.uint8)
         axs[0].imshow(vis_real_A.transpose(1, 2, 0))
         axs[0].set_title('real images')
 
         z_random = torch.randn(4, real_A.shape[0], latent_dim).to(gpu_id)
-        last_fake_B = None
         for i in range(4):
             fake_B_random = generator.forward(real_A, z_random[i])
 
@@ -142,12 +139,6 @@ if __name__ == "__main__":
             #  Visualization
             # ------------------------------
             vis_fake_B_random = denorm(fake_B_random[0].detach()).cpu().data.numpy().astype(np.uint8)
-            if last_fake_B is None:
-                last_fake_B = vis_fake_B_random
-            else:
-                isSame = last_fake_B == vis_fake_B_random
-                print(np.sum(isSame))
-                print(last_fake_B.size)
 
             axs[i + 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
 
