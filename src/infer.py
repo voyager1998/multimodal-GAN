@@ -4,7 +4,6 @@ import itertools
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-import argparse
 
 # Torch related
 import torch
@@ -47,7 +46,7 @@ if __name__ == "__main__":
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints_archived/'
-    if opt.__dict__['infer_random'] == True:
+    if opt.__dict__['infer_random']:
         test_img_dir = 'out_images_infer/'
         os.makedirs(test_img_dir, exist_ok=True)
     else:
