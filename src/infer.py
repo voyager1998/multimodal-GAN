@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+import argparse
 
 # Torch related
 import torch
@@ -11,8 +12,6 @@ from torch import nn, optim
 from torch.autograd import Variable
 
 # Local modules
-import sys
-IN_COLAB = 'google' in sys.modules
 from datasets import Edge2Shoe
 from models import (ResNetGenerator, PatchGANDiscriminator,
                     Encoder, weights_init_normal,
@@ -36,11 +35,25 @@ def denorm(tensor):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--infer_random', action="store_true",
+                        help='whether to use random latent variable as input')
+    parser.add_argument('--infer_encoded', action="store_true",
+                        help='whether to use encoded latent variable as input')
+    parser.add_argument('--use_colab', action="store_true",
+                        help='whether this is run on COLAB')
+    opt = parser.parse_args()
+
     # Training Configurations
     # (You may put your needed configuration here. Please feel free to add more or use argparse. )
     checkpoints_path = 'checkpoints_archived/'
-    test_img_dir = 'out_images_infer/'
-    os.makedirs(test_img_dir, exist_ok=True)
+    if opt.__dict__['infer_random'] == True:
+        test_img_dir = 'out_images_infer/'
+        os.makedirs(test_img_dir, exist_ok=True)
+    else:
+        test_img_dir = 'out_images_encoded/'
+        os.makedirs(test_img_dir + 'gen', exist_ok=True)
+        os.makedirs(test_img_dir + 'real', exist_ok=True)
 
     img_dir = 'data/edges2shoes/val/'
     img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
@@ -123,27 +136,47 @@ if __name__ == "__main__":
         real_A = edge_tensor
         real_B = rgb_tensor
 
-        # -------------------------------
-        #  Forward ALL
-        # ------------------------------
-        fig, axs = plt.subplots(1, 5, figsize=(10, 2))
-        vis_real_A = denorm(real_A[0].detach()).cpu().data.numpy().astype(np.uint8)
-        axs[0].imshow(vis_real_A.transpose(1, 2, 0))
-        axs[0].set_title('real images')
+        if opt.__dict__['infer_random']:
+            """
+            random latent -> B
+            """
+            fig, axs = plt.subplots(1, 5, figsize=(10, 2))
+            vis_real_A = denorm(real_A[0].detach()).cpu().data.numpy().astype(np.uint8)
+            axs[0].imshow(vis_real_A.transpose(1, 2, 0))
+            axs[0].set_title('real images')
 
-        z_random = torch.randn(4, real_A.shape[0], latent_dim).to(gpu_id)
-        for i in range(4):
-            fake_B_random = generator.forward(real_A, z_random[i])
+            z_random = torch.randn(4, real_A.shape[0], latent_dim).to(gpu_id)
+            for i in range(4):
+                fake_B_random = generator.forward(real_A, z_random[i])
 
-            # -------------------------------
-            #  Visualization
-            # ------------------------------
-            vis_fake_B_random = denorm(fake_B_random[0].detach()).cpu().data.numpy().astype(np.uint8)
+                # -------------------------------
+                #  Visualization
+                # ------------------------------
+                vis_fake_B_random = denorm(fake_B_random[0].detach()).cpu().data.numpy().astype(np.uint8)
 
-            axs[i + 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
+                axs[i + 1].imshow(vis_fake_B_random.transpose(1, 2, 0))
 
-        path = os.path.join(test_img_dir, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
-        if IN_COLAB:
-            plt.show()
+            path = os.path.join(test_img_dir, 'epoch_' + str(epoch_id) + '_' + str(idx) + '.png')
+            if opt.__dict__['use_colab']:
+                plt.show()
+            else:
+                plt.savefig(path)
         else:
-            plt.savefig(path)
+            """
+            B -> encoded latent -> B
+            FID:  76.68991094315851
+            """
+            z_mu, z_logvar = encoder.forward(rgb_tensor)
+            z_encoded = reparameterization(z_mu, z_logvar, device=gpu_id)
+
+            fake_B_encoded = generator.forward(real_A, z_encoded)
+
+            for i in range(batch_size):
+                vis_fake_B_encoded = \
+                    denorm(fake_B_encoded[i].detach()).cpu().\
+                    data.numpy().astype(np.uint8).transpose(1, 2, 0)
+                path = os.path.join(test_img_dir, 'gen/fake_B_' + str(idx) + '_' + str(i) + '.png')
+                plt.imsave(path, vis_fake_B_encoded)
+                path = os.path.join(test_img_dir, 'real/real_B_' + str(idx) + '_' + str(i) + '.png')
+                plt.imsave(path,
+                           denorm(real_B[i].detach()).cpu().data.numpy().astype(np.uint8).transpose(1, 2, 0))

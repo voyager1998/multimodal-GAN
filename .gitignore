@@ -217,6 +217,7 @@ $RECYCLE.BIN/
 .vscode
 checkpoints
 checkpoints_saved*
+checkpoints_*
 figures
 figures_saved*
 out_images*
