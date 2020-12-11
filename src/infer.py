@@ -3,6 +3,7 @@ import os
 import itertools
 import numpy as np
 import time
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 # Torch related
@@ -41,6 +42,10 @@ if __name__ == "__main__":
                         help='whether to use encoded latent variable as input')
     parser.add_argument('--use_colab', action="store_true",
                         help='whether this is run on COLAB')
+    parser.add_argument('--show_loss_curves', action='store_true',
+                        help='whether to show loss curves for the model')
+    parser.add_argument('--compute_lpips', action='store_true',
+                        help='whether to generate images for computing LPIPS score')
     opt = parser.parse_args()
 
     # Training Configurations
@@ -50,15 +55,19 @@ if __name__ == "__main__":
         test_img_dir = 'out_images_infer/'
         os.makedirs(test_img_dir, exist_ok=True)
     else:
-        test_img_dir = 'out_images_encoded/'
+        test_img_dir = 'out_images_fid/'
         os.makedirs(test_img_dir + 'gen', exist_ok=True)
         os.makedirs(test_img_dir + 'real', exist_ok=True)
+
+    if opt.__dict__['compute_lpips']:
+        lpips_img_dir = 'out_images_lpips'
+        os.makedirs(lpips_img_dir, exist_ok=True)
 
     img_dir = 'data/edges2shoes/val/'
     img_shape = (3, 128, 128)  # Please use this image dimension faster training purpose
     n_residual_blocks = 6
     num_epochs = 20
-    batch_size = 8
+    batch_size = 1
     lr_rate = 2e-4	      # Adam optimizer learning rate
     betas = (0.5, 0.999)    # Adam optimizer beta 1, beta 2
     lambda_pixel = 10      # Loss weights for pixel loss
@@ -95,40 +104,41 @@ if __name__ == "__main__":
     encoder.eval()
     generator.eval()
 
-    # Plot training losses
-    list_vae_G_train_loss = checkpoint['list_vae_G_train_loss']
-    list_clr_G_train_loss = checkpoint['list_clr_G_train_loss']
-    list_kld_train_loss = checkpoint['list_kld_train_loss']
-    list_img_train_loss = checkpoint['list_img_train_loss']
-    list_G_train_loss = checkpoint['list_G_train_loss']
-    list_latent_train_loss = checkpoint['list_latent_train_loss']
-    list_vae_D_train_loss = checkpoint['list_vae_D_train_loss']
-    list_clr_D_train_loss = checkpoint['list_clr_D_train_loss']
+    if opt.__dict__['show_loss_curves']:
+        # Plot training losses
+        list_vae_G_train_loss = checkpoint['list_vae_G_train_loss']
+        list_clr_G_train_loss = checkpoint['list_clr_G_train_loss']
+        list_kld_train_loss = checkpoint['list_kld_train_loss']
+        list_img_train_loss = checkpoint['list_img_train_loss']
+        list_G_train_loss = checkpoint['list_G_train_loss']
+        list_latent_train_loss = checkpoint['list_latent_train_loss']
+        list_vae_D_train_loss = checkpoint['list_vae_D_train_loss']
+        list_clr_D_train_loss = checkpoint['list_clr_D_train_loss']
 
-    fig, axs = plt.subplots(3, 3)
-    axs[0, 0].plot(list_vae_G_train_loss)
-    axs[0, 1].plot(list_clr_G_train_loss)
-    axs[0, 2].plot(list_kld_train_loss)
-    axs[1, 0].plot(list_img_train_loss)
-    axs[1, 1].plot(list_G_train_loss)
-    axs[1, 2].plot(list_latent_train_loss)
-    axs[2, 0].plot(list_vae_D_train_loss)
-    axs[2, 1].plot(list_clr_D_train_loss)
-    axs[0, 0].set_title('list_vae_G_train_loss')
-    axs[0, 1].set_title('list_clr_G_train_loss')
-    axs[0, 2].set_title('list_kld_train_loss')
-    axs[1, 0].set_title('list_img_train_loss')
-    axs[1, 1].set_title('list_G_train_loss')
-    axs[1, 2].set_title('list_latent_train_loss')
-    axs[2, 0].set_title('list_vae_D_train_loss')
-    axs[2, 1].set_title('list_clr_D_train_loss')
-    plt.show()
+        fig, axs = plt.subplots(3, 3)
+        axs[0, 0].plot(list_vae_G_train_loss)
+        axs[0, 1].plot(list_clr_G_train_loss)
+        axs[0, 2].plot(list_kld_train_loss)
+        axs[1, 0].plot(list_img_train_loss)
+        axs[1, 1].plot(list_G_train_loss)
+        axs[1, 2].plot(list_latent_train_loss)
+        axs[2, 0].plot(list_vae_D_train_loss)
+        axs[2, 1].plot(list_clr_D_train_loss)
+        axs[0, 0].set_title('list_vae_G_train_loss')
+        axs[0, 1].set_title('list_clr_G_train_loss')
+        axs[0, 2].set_title('list_kld_train_loss')
+        axs[1, 0].set_title('list_img_train_loss')
+        axs[1, 1].set_title('list_G_train_loss')
+        axs[1, 2].set_title('list_latent_train_loss')
+        axs[2, 0].set_title('list_vae_D_train_loss')
+        axs[2, 1].set_title('list_clr_D_train_loss')
+        plt.show()
 
     # For adversarial loss (optional to use)
     valid = 1
     fake = 0
 
-    for idx, data in enumerate(loader):
+    for idx, data in tqdm(enumerate(loader)):
         # ######## Process Inputs ##########
         edge_tensor, rgb_tensor = data
         edge_tensor, rgb_tensor = norm(edge_tensor).to(gpu_id), norm(rgb_tensor).to(gpu_id)
@@ -160,7 +170,8 @@ if __name__ == "__main__":
                 plt.show()
             else:
                 plt.savefig(path)
-        else:
+            plt.close()
+        elif opt.__dict__['infer_encoded']:
             """
             B -> encoded latent -> B
             FID:  76.68991094315851
@@ -179,3 +190,19 @@ if __name__ == "__main__":
                 path = os.path.join(test_img_dir, 'real/real_B_' + str(idx) + '_' + str(i) + '.png')
                 plt.imsave(path,
                            denorm(real_B[i].detach()).cpu().data.numpy().astype(np.uint8).transpose(1, 2, 0))
+        elif opt.__dict__['compute_lpips']:
+            lpips_batch_path = os.path.join(lpips_img_dir, str(idx))
+            os.makedirs(lpips_batch_path, exist_ok=True)
+
+            z_random = torch.randn(10, real_A.shape[0], latent_dim).to(gpu_id)
+            for i in range(10):
+                fake_B_random = generator.forward(real_A, z_random[i])
+
+                # -------------------------------
+                #  Visualization and Save
+                # ------------------------------
+                vis_fake_B_random = denorm(fake_B_random[0].detach()).cpu().data.numpy().astype(np.uint8)
+
+                path = os.path.join(lpips_batch_path, 'img_' + str(idx) + '_' + str(i) + '.png')
+                if not opt.__dict__['use_colab']:
+                    plt.imsave(path, vis_fake_B_random.transpose(1, 2, 0))
