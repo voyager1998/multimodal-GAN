@@ -64,7 +64,7 @@ for i in range(200):
     list_avg_dist.append(avg_dist)
 
 print('\n\nAvg across all test sets: %.5f' % np.mean(list_avg_dist))
-f.writelines('\n\nAvg: %.6f +/- %.6f' % (avg_dist, stderr_dist))
+f.writelines('\n\nAvg across all test sets: %.5f' % np.mean(list_avg_dist))
 
 
 f.close()
