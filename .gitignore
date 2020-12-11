@@ -218,6 +218,8 @@ $RECYCLE.BIN/
 checkpoints
 checkpoints_saved*
 checkpoints_*
+!checkpoints_archived
+*_epoch_*
 figures
 figures_saved*
 out_images*

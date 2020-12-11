@@ -22,6 +22,12 @@ To run inferences as well as generate quantitative evaluation on the trained mod
 sh scripts/infer.sh
 ```
 
+## Download Dataset
+Dataset will be automatically detected and downloaded if necessary upon running `scripts/download_and_train.sh`. If one is interested in investigating the dataset, he/she could visit `data/` for more information.
+
+## Saved Checkpoints
+We have trained two different models. One model uses the same discriminator for both cVAE-GAN cycle and cLR-GAN cycle, and the other model uses separate models. For more information please visit `checkpoints_archived`.
+
 
 
 ## Reference
